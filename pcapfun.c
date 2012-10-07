@@ -39,8 +39,13 @@
 #include <netinet/ether.h>
 #endif /* __linux__ */
 
+typedef struct stackinfo_t {
+	bpf_u_int32 offset;
+} stackinfo_t;
+
 /* function prototypes */
 static void usage(char *program);
+static void stackinfo_init(struct stackinfo_t *stackinfo);
 static pcap_t *setup_capture(char *device, char *filter);
 static int setup_filter(pcap_t *capt, char *device, char *filter);
 static pcap_handler get_link_handler(pcap_t *capt);
@@ -51,12 +56,16 @@ main(int argc, char **argv)
 {
 	pcap_t *capt;
 	pcap_handler pkt_handler;
+	struct stackinfo_t stackinfo;
 	
 	/* check usage */
 	if (argc != 3) {
 		usage(argv[0]);
 		return EXIT_FAILURE;
 	}
+	
+	/* init stackinfo struct */
+	stackinfo_init(&stackinfo);
 	
 	/* setup capturing using device and filter */
 	capt = setup_capture(argv[1], argv[2]);
@@ -69,7 +78,7 @@ main(int argc, char **argv)
 		return EXIT_FAILURE;
 	
 	/* capture and process 10 packets */
-	pcap_loop(capt, 10, pkt_handler, NULL);
+	pcap_loop(capt, 10, pkt_handler, (u_char *)&stackinfo);
 	
 	return EXIT_SUCCESS;
 }
@@ -78,6 +87,12 @@ static void
 usage(char *program)
 {
 	fprintf(stderr, "usage: %s <interface> <filter>\n", program);
+}
+
+static void
+stackinfo_init(struct stackinfo_t *stackinfo)
+{
+	stackinfo->offset = 0;
 }
 
 static pcap_t *
@@ -161,6 +176,10 @@ handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
 {
 	uint16_t ether_type;
 	struct ether_header *eptr;
+	struct stackinfo_t *stackinfo;
+	
+	/* extract stackinfo */
+	stackinfo = (struct stackinfo_t*)(args);
 	
 	/* extract ethernet header */
 	eptr = (struct ether_header *)(packet);
