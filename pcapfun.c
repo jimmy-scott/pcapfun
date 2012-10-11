@@ -39,13 +39,15 @@
 #include <netinet/ether.h>
 #endif /* __linux__ */
 
+#define ETHER_SIZE sizeof(struct ether_header)
+
 typedef struct stackinfo_t {
 	bpf_u_int32 offset;
 } stackinfo_t;
 
 /* function prototypes */
 static void usage(char *program);
-static void stackinfo_init(struct stackinfo_t *stackinfo);
+static struct stackinfo_t *stackinfo_new(void);
 static pcap_t *setup_capture(char *device, char *filter);
 static int setup_filter(pcap_t *capt, char *device, char *filter);
 static pcap_handler get_link_handler(pcap_t *capt);
@@ -56,16 +58,12 @@ main(int argc, char **argv)
 {
 	pcap_t *capt;
 	pcap_handler pkt_handler;
-	struct stackinfo_t stackinfo;
 	
 	/* check usage */
 	if (argc != 3) {
 		usage(argv[0]);
 		return EXIT_FAILURE;
 	}
-	
-	/* init stackinfo struct */
-	stackinfo_init(&stackinfo);
 	
 	/* setup capturing using device and filter */
 	capt = setup_capture(argv[1], argv[2]);
@@ -78,7 +76,7 @@ main(int argc, char **argv)
 		return EXIT_FAILURE;
 	
 	/* capture and process 10 packets */
-	pcap_loop(capt, 10, pkt_handler, (u_char *)&stackinfo);
+	pcap_loop(capt, 10, pkt_handler, NULL);
 	
 	return EXIT_SUCCESS;
 }
@@ -89,10 +87,14 @@ usage(char *program)
 	fprintf(stderr, "usage: %s <interface> <filter>\n", program);
 }
 
-static void
-stackinfo_init(struct stackinfo_t *stackinfo)
+static struct stackinfo_t *
+stackinfo_new(void)
 {
-	stackinfo->offset = 0;
+	static struct stackinfo_t stackinfo;
+	
+	stackinfo.offset = 0;
+	
+	return &stackinfo;
 }
 
 static pcap_t *
@@ -178,11 +180,14 @@ handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
 	struct ether_header *eptr;
 	struct stackinfo_t *stackinfo;
 	
-	/* extract stackinfo */
-	stackinfo = (struct stackinfo_t*)(args);
+	/* extract stackinfo or get new one */
+	if (args)
+		stackinfo = (struct stackinfo_t*)(args);
+	else
+		stackinfo = stackinfo_new();
 	
 	/* extract ethernet header */
-	eptr = (struct ether_header *)(packet);
+	eptr = (struct ether_header *)(packet + stackinfo->offset);
 	ether_type = ntohs(eptr->ether_type);
 	
 	printf("[eth] src: %s",
@@ -203,7 +208,10 @@ handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
 		printf("(?:%u)\n", ether_type);
 	}
 	
-	/* do something with ether_type */
+	/* point to next layer */
+	stackinfo->offset += ETHER_SIZE;
+	
+	/* handle the next layer */
 	
 	return;
 }
