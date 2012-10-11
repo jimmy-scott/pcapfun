@@ -87,6 +87,19 @@ usage(char *program)
 	fprintf(stderr, "usage: %s <interface> <filter>\n", program);
 }
 
+/*
+ * Re-initialize stackinfo to default values.
+ *
+ * The stackinfo structure is used to pass info down the protocol stack:
+ *
+ *  - The stackinfo.offset is the offset inside the captured packet
+ *    where the header (or data) of the current layer starts. Each layer
+ *    handler must update this offset to point to the next layer before
+ *    calling the handler for the next layer.
+ *
+ * Returns a pointer to the static stackinfo buffer.
+ */
+
 static struct stackinfo_t *
 stackinfo_new(void)
 {
@@ -96,6 +109,12 @@ stackinfo_new(void)
 	
 	return &stackinfo;
 }
+
+/*
+ * Open capture device and setup capture filter.
+ *
+ * Returns a packet capture handle (pcap_t).
+ */
 
 static pcap_t *
 setup_capture(char *device, char *filter)
@@ -119,6 +138,12 @@ setup_capture(char *device, char *filter)
 	
 	return capt;
 }
+
+/*
+ * Setup a capture filter on a device.
+ *
+ * Returns 0 if OK, -1 on error.
+ */
 
 static int
 setup_filter(pcap_t *capt, char *device, char *filter)
@@ -151,6 +176,15 @@ setup_filter(pcap_t *capt, char *device, char *filter)
 	return 0;
 }
 
+/*
+ * Determine handler function for first protocol layer.
+ *
+ * This function checks the link type, and returns a pcap_handler
+ * function that is able to handle the first protocol of a packet.
+ *
+ * Returns a pcap_handler or NULL if the protocol is not yet supported.
+ */
+
 static pcap_handler
 get_link_handler(pcap_t *capt)
 {
@@ -171,6 +205,14 @@ get_link_handler(pcap_t *capt)
 	/* never reached */
 	return NULL;
 }
+
+/* ****************************************************************** */
+/* *********************** Protocol handlers ************************ */
+/* ****************************************************************** */
+
+/*
+ * Handle "10Mb/s" ethernet protocol.
+ */
 
 static void
 handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
