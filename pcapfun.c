@@ -186,6 +186,12 @@ handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
 	else
 		stackinfo = stackinfo_new();
 	
+	/* check if header was captured completely */
+	if (pkthdr->caplen - stackinfo->offset < ETHER_SIZE) {
+		printf("[eth] header missing or truncated\n");
+		return;
+	}
+	
 	/* extract ethernet header */
 	eptr = (struct ether_header *)(packet + stackinfo->offset);
 	ether_type = ntohs(eptr->ether_type);
