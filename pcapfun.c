@@ -271,12 +271,17 @@ handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
 	return;
 }
 
+/*
+ * Handle IPv4 protocol.
+ */
+
 static void
 handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 	const u_char *packet)
 {
 	struct ip *ip;
 	struct stackinfo_t *stackinfo;
+	uint16_t ip_len, ip_off, offset;
 	
 	/* extract stackinfo or get new one */
 	if (args)
@@ -293,7 +298,46 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 	/* extract ip header */
 	ip = (struct ip *)(packet + stackinfo->offset);
 	
-	/* TODO */
+	/* extract ip fields to host byte order */
+	ip_len = ntohs(ip->ip_len);	/* ip packet length   */
+	ip_off = ntohs(ip->ip_off);	/* ip fragment offset */
+	
+	/* verify ip version */
+	if (ip->ip_v != 4) {
+		printf("[ipv4] invalid version: %d\n", ip->ip_v);
+		return;
+	}
+	
+	/* verify header length */
+	if (ip->ip_hl < 5) {
+		printf("[ipv4] invalid header length: %d\n", ip->ip_hl);
+		return;
+	}
+	
+	/* verify packet length (on the wire) */
+	if (pkthdr->len - stackinfo->offset < ip_len) {
+		printf("[ipv4] truncated: %u bytes missing\n",
+			ip_len - (pkthdr->len - stackinfo->offset));
+		/* just a warning, don't return */
+	}
+	
+	/* calculate offset */
+	if ((offset = ip_off & IP_OFFMASK) != 0)
+		offset <<= 3;
+	
+	/* determine if first fragment or not */
+	if (offset) {
+		/* is not the first fragment */
+		printf("[ipv4-frag] ");
+	} else {
+		/* is the first/only fragment */
+		printf("[ipv4] ");
+	}
+	
+	/* print remaining info */
+	printf("src: %s ", inet_ntoa(ip->ip_src));
+	printf("dst: %s ", inet_ntoa(ip->ip_dst));
+	printf("len: %u off: %u\n", ip_len, offset);
 	
 	/* point to next layer */
 	stackinfo->offset += IPV4_SIZE;
