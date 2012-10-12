@@ -34,12 +34,14 @@
 
 #include <arpa/inet.h>
 #include <net/ethernet.h>
+#include <netinet/ip.h>
 
 #ifdef __linux__
 #include <netinet/ether.h>
 #endif /* __linux__ */
 
 #define ETHER_SIZE sizeof(struct ether_header)
+#define IPV4_SIZE sizeof(struct ip)
 
 typedef struct stackinfo_t {
 	bpf_u_int32 offset;
@@ -52,6 +54,7 @@ static pcap_t *setup_capture(char *device, char *filter);
 static int setup_filter(pcap_t *capt, char *device, char *filter);
 static pcap_handler get_link_handler(pcap_t *capt);
 static void handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
+static void handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 
 int
 main(int argc, char **argv)
@@ -221,6 +224,7 @@ handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
 	uint16_t ether_type;
 	struct ether_header *eptr;
 	struct stackinfo_t *stackinfo;
+	pcap_handler handle_next = NULL;
 	
 	/* extract stackinfo or get new one */
 	if (args)
@@ -246,6 +250,7 @@ handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
 	/* check packet type */
 	if (ether_type == ETHERTYPE_IP) {
 		printf("(IP)\n");
+		handle_next = handle_ipv4;
 	} else if (ether_type == ETHERTYPE_ARP) {
 		printf("(ARP)\n");
 	} else if (ether_type == ETHERTYPE_REVARP) {
@@ -260,7 +265,41 @@ handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
 	stackinfo->offset += ETHER_SIZE;
 	
 	/* handle the next layer */
+	if (handle_next)
+		handle_next((u_char *)stackinfo, pkthdr, packet);
 	
 	return;
 }
 
+static void
+handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
+	const u_char *packet)
+{
+	struct ip *ip;
+	struct stackinfo_t *stackinfo;
+	
+	/* extract stackinfo or get new one */
+	if (args)
+		stackinfo = (struct stackinfo_t*)(args);
+	else
+		stackinfo = stackinfo_new();	
+	
+	/* check if header was captured completely */
+	if (pkthdr->caplen - stackinfo->offset < IPV4_SIZE) {
+		printf("[ipv4] header missing or truncated\n");
+		return;
+	}
+	
+	/* extract ip header */
+	ip = (struct ip *)(packet + stackinfo->offset);
+	
+	/* TODO */
+	
+	/* point to next layer */
+	stackinfo->offset += IPV4_SIZE;
+	
+	/* handle the next layer */
+	
+	return;
+}
+	
