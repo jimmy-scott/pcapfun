@@ -334,6 +334,17 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 		printf("[ipv4] ");
 	}
 	
+	/* determine protocol */
+	if (ip->ip_p == IPPROTO_UDP) {
+		printf("proto: udp ");
+	} else if (ip->ip_p == IPPROTO_TCP) {
+		printf("proto: tcp ");
+	} else if (ip->ip_p == IPPROTO_ICMP) {
+		printf("proto: icmp ");
+	} else {
+		printf("proto: ?:%u ", ip->ip_p);
+	}
+	
 	/* print remaining info */
 	printf("src: %s ", inet_ntoa(ip->ip_src));
 	printf("dst: %s ", inet_ntoa(ip->ip_dst));
