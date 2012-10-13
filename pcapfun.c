@@ -337,7 +337,8 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 	/* print remaining info */
 	printf("src: %s ", inet_ntoa(ip->ip_src));
 	printf("dst: %s ", inet_ntoa(ip->ip_dst));
-	printf("len: %u off: %u\n", ip_len, offset);
+	printf("len: %u off: %u%s\n",
+		ip_len, offset, (ip_off & IP_MF) ? " +" : "");
 	
 	/* point to next layer */
 	stackinfo->offset += IPV4_SIZE;
