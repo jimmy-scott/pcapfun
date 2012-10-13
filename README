@@ -1,2 +1,30 @@
-pcapfun - having fun with pcap
-==============================
+pcapfun - having fun with libpcap
+=================================
+
+I was just messing around with libpcap, and this is the result so far.
+
+The code compiles on OSX and Linux, so I guess it would also compile on
+FreeBSD and probably on other BSD's too.
+
+You must provide a device (to capture the packets on) and a pcap filter.
+If you know don't know how a pcap filter looks like, check the manpage
+of tcpdump or pcap-filter, it's the same type of filter that you provide
+to tcpdump or wireshark/tshark, but as a single argument instead.
+
+    ./pcapfun eth0 "udp and port 666"
+
+I didn't spend too much effort on the interface, so for the time being,
+if you don't want a filter, just run it like this:
+
+    ./pcapfun eth0 ""
+
+It will open the device, set the filter on the device, check the link
+type you are capturing packets on, determine which protocol handler to
+use for this link type, then capture and handle a total of 10 packets
+that match the filter expression.
+
+Only a very limited set of link types and protocol handlers are
+implemented so far, but more will follow.
+
+Experiment with the source if you want it to do so something else!
+
