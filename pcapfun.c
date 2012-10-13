@@ -35,6 +35,7 @@
 #include <arpa/inet.h>
 #include <net/ethernet.h>
 #include <netinet/ip.h>
+#include <netinet/udp.h>
 
 #ifdef __linux__
 #include <netinet/ether.h>
@@ -42,6 +43,7 @@
 
 #define ETHER_SIZE sizeof(struct ether_header)
 #define IPV4_SIZE sizeof(struct ip)
+#define UDP_SIZE sizeof(struct udphdr)
 
 typedef struct stackinfo_t {
 	bpf_u_int32 offset;
@@ -55,6 +57,7 @@ static int setup_filter(pcap_t *capt, char *device, char *filter);
 static pcap_handler get_link_handler(pcap_t *capt);
 static void handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
+static void handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 
 int
 main(int argc, char **argv)
@@ -282,6 +285,7 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 	struct ip *ip;
 	struct stackinfo_t *stackinfo;
 	uint16_t ip_len, ip_off, offset;
+	pcap_handler handle_next = NULL;
 	
 	/* extract stackinfo or get new one */
 	if (args)
@@ -337,6 +341,9 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 	/* determine protocol */
 	if (ip->ip_p == IPPROTO_UDP) {
 		printf("proto: udp ");
+		if (!offset)
+			/* first fragment handler */
+			handle_next = handle_udp;
 	} else if (ip->ip_p == IPPROTO_TCP) {
 		printf("proto: tcp ");
 	} else if (ip->ip_p == IPPROTO_ICMP) {
@@ -353,6 +360,44 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 	
 	/* point to next layer */
 	stackinfo->offset += IPV4_SIZE;
+	
+	/* handle the next layer */
+	if (handle_next)
+		handle_next((u_char *)stackinfo, pkthdr, packet);
+	
+	return;
+}
+
+/*
+ * Handle UDP protocol.
+ */
+
+static void
+handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr,
+	const u_char *packet)
+{
+	struct udphdr *udp;
+	struct stackinfo_t *stackinfo;
+	
+	/* extract stackinfo or get new one */
+	if (args)
+		stackinfo = (struct stackinfo_t*)(args);
+	else
+		stackinfo = stackinfo_new();	
+	
+	/* check if header was captured completely */
+	if (pkthdr->caplen - stackinfo->offset < UDP_SIZE) {
+		printf("[udp] header missing or truncated\n");
+		return;
+	}
+	
+	/* extract udp header */
+	udp = (struct udphdr *)(packet + stackinfo->offset);
+	
+	/* TODO */
+	
+	/* point to next layer */
+	stackinfo->offset += UDP_SIZE;
 	
 	/* handle the next layer */
 	
