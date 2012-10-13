@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define __FAVOR_BSD
 #include <arpa/inet.h>
 #include <net/ethernet.h>
 #include <netinet/ip.h>
@@ -394,7 +395,10 @@ handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr,
 	/* extract udp header */
 	udp = (struct udphdr *)(packet + stackinfo->offset);
 	
-	/* TODO */
+	/* print udp info */
+	printf("[udp] src-port: %u dst-port: %u len: %u\n",
+		ntohs(udp->uh_sport), ntohs(udp->uh_dport),
+		ntohs(udp->uh_ulen));
 	
 	/* point to next layer */
 	stackinfo->offset += UDP_SIZE;
