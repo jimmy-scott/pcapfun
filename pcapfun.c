@@ -315,16 +315,16 @@ handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
 	
 	/* check packet type */
 	if (ether_type == ETHERTYPE_IP) {
-		printf("(IP)\n");
+		printf("proto: ip\n");
 		handle_next = handle_ipv4;
 	} else if (ether_type == ETHERTYPE_ARP) {
-		printf("(ARP)\n");
+		printf("proto: arp\n");
 	} else if (ether_type == ETHERTYPE_REVARP) {
-		printf("(RARP)\n");
+		printf("proto: rarp\n");
 	} else if (ether_type == ETHERTYPE_IPV6) {
-		printf("(IPv6)\n");
+		printf("proto: ipv6\n");
 	} else {
-		printf("(?:%u)\n", ether_type);
+		printf("proto: ?:%u\n", ether_type);
 	}
 	
 	/* point to next layer */
