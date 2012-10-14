@@ -50,12 +50,18 @@ typedef struct stackinfo_t {
 	bpf_u_int32 offset;
 } stackinfo_t;
 
+typedef struct packetinfo_t {
+	pcap_handler handler;
+} packetinfo_t;
+
 /* function prototypes */
 static void usage(char *program);
 static struct stackinfo_t *stackinfo_new(void);
+static struct packetinfo_t *packetinfo_new(pcap_handler link_handler);
 static pcap_t *setup_capture(char *device, char *filter);
 static int setup_filter(pcap_t *capt, char *device, char *filter);
 static pcap_handler get_link_handler(pcap_t *capt);
+static void handle_packet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
@@ -64,7 +70,8 @@ int
 main(int argc, char **argv)
 {
 	pcap_t *capt;
-	pcap_handler pkt_handler;
+	pcap_handler link_handler;
+	struct packetinfo_t *packetinfo;
 	
 	/* check usage */
 	if (argc != 3) {
@@ -77,13 +84,16 @@ main(int argc, char **argv)
 	if (!capt)
 		return EXIT_FAILURE;
 	
-	/* get packet handler based on link type */
-	pkt_handler = get_link_handler(capt);
-	if (!pkt_handler)
+	/* get link handler based on link type */
+	link_handler = get_link_handler(capt);
+	if (!link_handler)
 		return EXIT_FAILURE;
 	
+	/* get packetinfo structure */
+	packetinfo = packetinfo_new(link_handler);
+	
 	/* capture and process 10 packets */
-	pcap_loop(capt, 10, pkt_handler, NULL);
+	pcap_loop(capt, 10, handle_packet, (u_char *)packetinfo);
 	
 	return EXIT_SUCCESS;
 }
@@ -115,6 +125,27 @@ stackinfo_new(void)
 	stackinfo.offset = 0;
 	
 	return &stackinfo;
+}
+
+/*
+ * Initialize packetinfo.
+ *
+ * The packetinfo structure is used to pass info to the packet handler:
+ *
+ *  - The packetinfo.handler is a function pointer to the handler that
+ *    hould be used to handle the first protocol.
+ *
+ * Returns a pointer to the static packetinfo buffer.
+ */
+
+static struct packetinfo_t *
+packetinfo_new(pcap_handler link_handler)
+{
+	static struct packetinfo_t packetinfo;
+	
+	packetinfo.handler = link_handler;
+	
+	return &packetinfo;
 }
 
 /*
@@ -214,6 +245,40 @@ get_link_handler(pcap_t *capt)
 }
 
 /* ****************************************************************** */
+/* ************************ Packet handlers ************************* */
+/* ****************************************************************** */
+
+/*
+ * Basic packet handler. 
+ */
+
+static void
+handle_packet(u_char *args, const struct pcap_pkthdr *pkthdr,
+	const u_char *packet)
+{
+	struct stackinfo_t *stackinfo;
+	struct packetinfo_t *packetinfo;
+	
+	/* get clean stackinfo structure */
+	stackinfo = stackinfo_new();
+	
+	/* extract the packetinfo structure */
+	packetinfo = (struct packetinfo_t *)(args);
+	
+	/* print packet info */
+	printf("[pcap] time: %ld.%06ld len: %lu caplen: %lu\n",
+		(long)pkthdr->ts.tv_sec,
+		(long)pkthdr->ts.tv_usec,
+		(unsigned long)pkthdr->len,
+		(unsigned long)pkthdr->caplen);
+	
+	/* handle the first protocol layer */
+	packetinfo->handler((u_char *)stackinfo, pkthdr, packet);
+	
+	return;
+}
+
+/* ****************************************************************** */
 /* *********************** Protocol handlers ************************ */
 /* ****************************************************************** */
 
@@ -230,11 +295,8 @@ handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
 	struct stackinfo_t *stackinfo;
 	pcap_handler handle_next = NULL;
 	
-	/* extract stackinfo or get new one */
-	if (args)
-		stackinfo = (struct stackinfo_t*)(args);
-	else
-		stackinfo = stackinfo_new();
+	/* extract stackinfo */
+	stackinfo = (struct stackinfo_t*)(args);
 	
 	/* check if header was captured completely */
 	if (pkthdr->caplen - stackinfo->offset < ETHER_SIZE) {
@@ -288,11 +350,8 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 	uint16_t ip_len, ip_off, offset;
 	pcap_handler handle_next = NULL;
 	
-	/* extract stackinfo or get new one */
-	if (args)
-		stackinfo = (struct stackinfo_t*)(args);
-	else
-		stackinfo = stackinfo_new();	
+	/* extract stackinfo */
+	stackinfo = (struct stackinfo_t*)(args);
 	
 	/* check if header was captured completely */
 	if (pkthdr->caplen - stackinfo->offset < IPV4_SIZE) {
@@ -380,11 +439,8 @@ handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr,
 	struct udphdr *udp;
 	struct stackinfo_t *stackinfo;
 	
-	/* extract stackinfo or get new one */
-	if (args)
-		stackinfo = (struct stackinfo_t*)(args);
-	else
-		stackinfo = stackinfo_new();	
+	/* extract stackinfo */
+	stackinfo = (struct stackinfo_t*)(args);
 	
 	/* check if header was captured completely */
 	if (pkthdr->caplen - stackinfo->offset < UDP_SIZE) {
