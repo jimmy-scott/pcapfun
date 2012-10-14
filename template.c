@@ -22,11 +22,8 @@ handle_XXXXX(u_char *args, const struct pcap_pkthdr *pkthdr,
 	struct stackinfo_t *stackinfo;
 	pcap_handler handle_next = NULL;
 	
-	/* extract stackinfo or get new one */
-	if (args)
-		stackinfo = (struct stackinfo_t*)(args);
-	else
-		stackinfo = stackinfo_new();	
+	/* extract stackinfo */
+	stackinfo = (struct stackinfo_t*)(args);
 	
 	/* check if header was captured completely */
 	if (pkthdr->caplen - stackinfo->offset < XXXXX_SIZE) {
