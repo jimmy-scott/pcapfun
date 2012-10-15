@@ -199,13 +199,15 @@ setup_filter(pcap_t *capt, char *device, char *filter)
 	
 	/* compile the filter expression */
 	if (pcap_compile(capt, &bpfp, filter, 0, network) == -1) {
-		fprintf(stderr, "failed to compile filter: %s\n", filter);
+		fprintf(stderr, "ERROR: Couldn't parse filter '%s': %s\n",
+			filter, pcap_geterr(capt));
 		return -1;
 	}
 	
 	/* set the compiled filter */
 	if (pcap_setfilter(capt, &bpfp) == -1) {
-		fprintf(stderr, "failed to set filter: %s\n", filter);
+		fprintf(stderr, "ERROR: Couldn't install filter '%s': %s\n",
+			filter, pcap_geterr(capt));
 		return -1;
 	}
 	
