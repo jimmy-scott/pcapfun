@@ -43,7 +43,7 @@
 #endif /* __linux__ */
 
 #define ETHER_SIZE sizeof(struct ether_header)
-#define IPV4_SIZE sizeof(struct ip)
+#define IPV4_SIZE sizeof(struct ip) /* without options!! */
 #define UDP_SIZE sizeof(struct udphdr)
 
 typedef struct stackinfo_t {
@@ -348,19 +348,19 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 {
 	struct ip *ip;
 	struct stackinfo_t *stackinfo;
-	uint16_t ip_len, ip_off, offset;
+	uint16_t ip_len, ip_off, offset, ip_hsize;
 	pcap_handler handle_next = NULL;
 	
 	/* extract stackinfo */
 	stackinfo = (struct stackinfo_t*)(args);
 	
-	/* check if header was captured completely */
+	/* check if header (w/o options) was captured completely */
 	if (pkthdr->caplen - stackinfo->offset < IPV4_SIZE) {
 		printf("[ipv4] header missing or truncated\n");
 		return;
 	}
 	
-	/* extract ip header */
+	/* extract ip header (w/o options) */
 	ip = (struct ip *)(packet + stackinfo->offset);
 	
 	/* extract ip fields to host byte order */
@@ -378,6 +378,9 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 		printf("[ipv4] invalid header length: %d\n", ip->ip_hl);
 		return;
 	}
+	
+	/* calculate header length in bytes */
+	ip_hsize = ip->ip_hl * 4;
 	
 	/* verify packet length (on the wire) */
 	if (pkthdr->len - stackinfo->offset < ip_len) {
@@ -419,8 +422,14 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 	printf("len: %u off: %u%s\n",
 		ip_len, offset, (ip_off & IP_MF) ? " +" : "");
 	
+	/* check if header (w/ options) was captured completely */
+	if (pkthdr->caplen - stackinfo->offset < ip_hsize) {
+		printf("[ipv4] header options missing or truncated\n");
+		return;
+	}
+	
 	/* point to next layer */
-	stackinfo->offset += IPV4_SIZE;
+	stackinfo->offset += ip_hsize;
 	
 	/* handle the next layer */
 	if (handle_next)
