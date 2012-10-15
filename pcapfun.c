@@ -186,17 +186,15 @@ setup_capture(char *device, char *filter)
 static int
 setup_filter(pcap_t *capt, char *device, char *filter)
 {
-	bpf_u_int32 network;
-	bpf_u_int32 netmask;
+	bpf_u_int32 network = 0;
+	bpf_u_int32 netmask = 0;
 	struct bpf_program bpfp;
 	char errbuf[PCAP_ERRBUF_SIZE] = "\0";
 	
-	/* FIXME: does not work without a network */
-	
 	/* get network and netmask of device */
 	if (pcap_lookupnet(device, &network, &netmask, errbuf) == -1) {
-		fprintf(stderr, "failed to lookup %s: %s\n", device, errbuf);
-		return -1;
+		fprintf(stderr, "WARNING: %s\n", errbuf);
+		network = PCAP_NETMASK_UNKNOWN;
 	}
 	
 	/* compile the filter expression */
