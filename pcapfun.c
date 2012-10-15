@@ -164,7 +164,8 @@ setup_capture(char *device, char *filter)
 	 * snaplen = BUFSIZ, promisc = 1, timeout = 100ms */
 	capt = pcap_open_live(device, BUFSIZ, 1, 100, errbuf);
 	if (capt == NULL) {
-		fprintf(stderr, "failed to open %s: %s\n", device, errbuf);
+		fprintf(stderr, "ERROR: Couldn't open device '%s': %s\n",
+			device, errbuf);
 		return NULL;
 	}
 	
