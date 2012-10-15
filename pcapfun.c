@@ -37,11 +37,13 @@
 #include <net/ethernet.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
+#include <sys/socket.h>
 
 #ifdef __linux__
 #include <netinet/ether.h>
 #endif /* __linux__ */
 
+#define BSDLOOP_SIZE 4
 #define ETHER_SIZE sizeof(struct ether_header)
 #define IPV4_SIZE sizeof(struct ip) /* without options!! */
 #define UDP_SIZE sizeof(struct udphdr)
@@ -62,6 +64,7 @@ static pcap_t *setup_capture(char *device, char *filter);
 static int setup_filter(pcap_t *capt, char *device, char *filter);
 static pcap_handler get_link_handler(pcap_t *capt);
 static void handle_packet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
+static void handle_bsd_loop(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
@@ -236,6 +239,9 @@ get_link_handler(pcap_t *capt)
 	if (link_type == DLT_EN10MB) {
 		printf("Link type: Ethernet\n");
 		return handle_ethernet;
+	} else if (link_type == DLT_NULL) {
+		printf("Link type: BSD loopback\n");
+		return handle_bsd_loop;
 	} else {
 		printf("Link type %i not supported\n", link_type);
 		return NULL;
@@ -282,6 +288,53 @@ handle_packet(u_char *args, const struct pcap_pkthdr *pkthdr,
 /* ****************************************************************** */
 /* *********************** Protocol handlers ************************ */
 /* ****************************************************************** */
+
+/*
+ * Handle BSD loopback encapsulation.
+ */
+
+static void
+handle_bsd_loop(u_char *args, const struct pcap_pkthdr *pkthdr,
+	const u_char *packet)
+{
+	uint32_t proto;
+	struct stackinfo_t *stackinfo;
+	pcap_handler handle_next = NULL;
+	
+	/* extract stackinfo */
+	stackinfo = (struct stackinfo_t*)(args);
+	
+	/* check if header was captured completely */
+	if (pkthdr->caplen - stackinfo->offset < BSDLOOP_SIZE) {
+		printf("[eth] header missing or truncated\n");
+		return;
+	}
+	
+	/* extract link layer header by copying the first 4 bytes of
+	 * the packet and turning it into a 32bit unsigned integer */
+	proto = (uint32_t)*packet;
+	
+	printf("[bsd-null] ");
+	
+	/* check packet type */
+	if (proto == PF_INET) {
+		printf("proto: ip\n");
+		handle_next = handle_ipv4;
+	} else if (proto == PF_INET6) {
+		printf("proto: ipv6\n");
+	} else {
+		printf("proto: ?:%u\n", proto);
+	}
+	
+	/* point to next layer */
+	stackinfo->offset += BSDLOOP_SIZE;
+	
+	/* handle the next layer */
+	if (handle_next)
+		handle_next((u_char *)stackinfo, pkthdr, packet);
+	
+	return;
+}
 
 /*
  * Handle "10Mb/s" ethernet protocol.
