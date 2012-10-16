@@ -322,13 +322,18 @@ handle_bsd_loop(u_char *args, const struct pcap_pkthdr *pkthdr,
 	printf("[bsd-null] ");
 	
 	/* check packet type */
-	if (proto == PF_INET) {
+	switch (proto)
+	{
+	case PF_INET:
 		printf("proto: ip\n");
 		handle_next = handle_ipv4;
-	} else if (proto == PF_INET6) {
+		break;
+	case PF_INET6:
 		printf("proto: ipv6\n");
-	} else {
+		break;
+	default:
 		printf("proto: ?:%u\n", proto);
+		break;
 	}
 	
 	/* point to next layer */
