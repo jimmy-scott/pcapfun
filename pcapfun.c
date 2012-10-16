@@ -378,17 +378,24 @@ handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
 		ether_ntoa((const struct ether_addr *)eptr->ether_dhost));
 	
 	/* check packet type */
-	if (ether_type == ETHERTYPE_IP) {
+	switch (ether_type)
+	{
+	case ETHERTYPE_IP:
 		printf("proto: ip\n");
 		handle_next = handle_ipv4;
-	} else if (ether_type == ETHERTYPE_ARP) {
+		break;
+	case ETHERTYPE_ARP:
 		printf("proto: arp\n");
-	} else if (ether_type == ETHERTYPE_REVARP) {
+		break;
+	case ETHERTYPE_REVARP:
 		printf("proto: rarp\n");
-	} else if (ether_type == ETHERTYPE_IPV6) {
+		break;
+	case ETHERTYPE_IPV6:
 		printf("proto: ipv6\n");
-	} else {
+		break;
+	default:
 		printf("proto: ?:%u\n", ether_type);
+		break;
 	}
 	
 	/* point to next layer */
