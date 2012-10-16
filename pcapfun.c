@@ -473,17 +473,23 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 	}
 	
 	/* determine protocol */
-	if (ip->ip_p == IPPROTO_UDP) {
+	switch (ip->ip_p)
+	{
+	case IPPROTO_UDP:
 		printf("proto: udp ");
 		if (!offset)
 			/* first fragment handler */
 			handle_next = handle_udp;
-	} else if (ip->ip_p == IPPROTO_TCP) {
+		break;
+	case IPPROTO_TCP:
 		printf("proto: tcp ");
-	} else if (ip->ip_p == IPPROTO_ICMP) {
+		break;
+	case IPPROTO_ICMP:
 		printf("proto: icmp ");
-	} else {
+		break;
+	default:
 		printf("proto: ?:%u ", ip->ip_p);
+		break;
 	}
 	
 	/* print remaining info */
