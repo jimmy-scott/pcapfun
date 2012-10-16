@@ -236,15 +236,20 @@ get_link_handler(pcap_t *capt)
 	link_type = pcap_datalink(capt);
 	
 	/* determine link layer protocol */
-	if (link_type == DLT_EN10MB) {
+	switch (link_type)
+	{
+	case DLT_EN10MB:
 		printf("Link type: Ethernet\n");
 		return handle_ethernet;
-	} else if (link_type == DLT_NULL) {
+		break;
+	case DLT_NULL:
 		printf("Link type: BSD loopback\n");
 		return handle_bsd_loop;
-	} else {
+		break;
+	default:
 		printf("Link type %i not supported\n", link_type);
 		return NULL;
+		break;
 	}
 	
 	/* never reached */
