@@ -29,6 +29,8 @@
  */
 
 #include <pcap.h>
+#include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -63,11 +65,16 @@ static struct packetinfo_t *packetinfo_new(pcap_handler link_handler);
 static pcap_t *setup_capture(char *device, char *filter);
 static int setup_filter(pcap_t *capt, char *device, char *filter);
 static pcap_handler get_link_handler(pcap_t *capt);
+static int install_sigalrm(pcap_t *capt);
+static void handle_sigalrm(int signo);
 static void handle_packet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_bsd_loop(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
+
+/* for pcap_breakloop in sigalrm */
+pcap_t *alrm_pcap_handle = NULL;
 
 int
 main(int argc, char **argv)
@@ -85,6 +92,10 @@ main(int argc, char **argv)
 	/* setup capturing using device and filter */
 	capt = setup_capture(argv[1], argv[2]);
 	if (!capt)
+		return EXIT_FAILURE;
+	
+	/* install signal handler to break pcap_loop */
+	if (install_sigalrm(capt) != 0)
 		return EXIT_FAILURE;
 	
 	/* get link handler based on link type */
@@ -254,6 +265,50 @@ get_link_handler(pcap_t *capt)
 	
 	/* never reached */
 	return NULL;
+}
+
+/*
+ * Install the SIGALRM handler.
+ *
+ * The SIGALRM handler is used to terminate the capture loop.
+ *
+ * Returns 0 if OK, -1 on error.
+ */
+
+static int
+install_sigalrm(pcap_t *capt)
+{
+	struct sigaction new_action;
+	
+	/* pcap handle to stop */
+	alrm_pcap_handle = capt;
+	
+	/* setup the new sigalrm handler */
+	new_action.sa_handler = handle_sigalrm;
+	sigemptyset(&new_action.sa_mask);
+	new_action.sa_flags = 0;
+	
+	/* install the handler */
+	if (sigaction(SIGALRM, &new_action, NULL) == -1) {
+		perror("ERROR: Couldn't install SIGALRM handler");
+		return -1;
+	}
+	
+	return 0;
+}
+
+/*
+ * Handle the SIGALRM signal.
+ *
+ * This will terminate the capture loop in a safe way.
+ */
+
+static void
+handle_sigalrm(int signo)
+{
+	int save_errno = errno;
+	pcap_breakloop(alrm_pcap_handle);
+	errno = save_errno;
 }
 
 /* ****************************************************************** */
