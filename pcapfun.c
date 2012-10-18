@@ -76,6 +76,7 @@ static int install_sigalrm(pcap_t *capt);
 static void handle_sigalrm(int signo);
 static void handle_packet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_bsd_null(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
+static void handle_bsd_loop(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_loopback(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet, int type);
 static void handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
@@ -265,6 +266,10 @@ get_link_handler(pcap_t *capt)
 		printf("Link type: BSD loopback\n");
 		return handle_bsd_null;
 		break;
+	case DLT_LOOP:
+		printf("Link type: OpenBSD loopback\n");
+		return handle_bsd_loop;
+		break;
 	default:
 		printf("Link type %i not supported\n", link_type);
 		return NULL;
@@ -370,6 +375,18 @@ handle_bsd_null(u_char *args, const struct pcap_pkthdr *pkthdr,
 }
 
 /*
+ * Handle OpenBSD loopback encapsulation.
+ */
+
+static void
+handle_bsd_loop(u_char *args, const struct pcap_pkthdr *pkthdr,
+	const u_char *packet)
+{
+	handle_loopback(args, pkthdr, packet, DLT_LOOP);
+	return;
+}
+
+/*
  * Handle loopback encapsulation.
  */
 
@@ -397,6 +414,10 @@ handle_loopback(u_char *args, const struct pcap_pkthdr *pkthdr,
 	case DLT_NULL:
 		proto = *((uint32_t*)packet);
 		printf("[bsd-null] ");
+		break;
+	case DLT_LOOP:
+		proto = ntohl(*((uint32_t*)packet));
+		printf("[bsd-loop] ");
 		break;
 	default:
 		printf("[loopback] unknown loopback type: %i\n", type);
