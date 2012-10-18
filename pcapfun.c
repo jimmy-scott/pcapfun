@@ -477,9 +477,9 @@ handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
 	ether_type = ntohs(eptr->ether_type);
 	
 	printf("[eth] src: %s",
-		ether_ntoa((const struct ether_addr *)eptr->ether_shost));
+		ether_ntoa((struct ether_addr *)eptr->ether_shost));
 	printf(" dst: %s ",
-		ether_ntoa((const struct ether_addr *)eptr->ether_dhost));
+		ether_ntoa((struct ether_addr *)eptr->ether_dhost));
 	
 	/* check packet type */
 	switch (ether_type)
