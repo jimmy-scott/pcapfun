@@ -75,7 +75,7 @@ static pcap_handler get_link_handler(pcap_t *capt);
 static int install_sigalrm(pcap_t *capt);
 static void handle_sigalrm(int signo);
 static void handle_packet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
-static void handle_bsd_loop(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
+static void handle_bsd_null(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
@@ -262,7 +262,7 @@ get_link_handler(pcap_t *capt)
 		break;
 	case DLT_NULL:
 		printf("Link type: BSD loopback\n");
-		return handle_bsd_loop;
+		return handle_bsd_null;
 		break;
 	default:
 		printf("Link type %i not supported\n", link_type);
@@ -361,7 +361,7 @@ handle_packet(u_char *args, const struct pcap_pkthdr *pkthdr,
  */
 
 static void
-handle_bsd_loop(u_char *args, const struct pcap_pkthdr *pkthdr,
+handle_bsd_null(u_char *args, const struct pcap_pkthdr *pkthdr,
 	const u_char *packet)
 {
 	uint32_t proto;
