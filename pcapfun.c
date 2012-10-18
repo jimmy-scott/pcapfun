@@ -379,7 +379,7 @@ handle_bsd_loop(u_char *args, const struct pcap_pkthdr *pkthdr,
 	
 	/* extract link layer header by copying the first 4 bytes of
 	 * the packet and turning it into a 32bit unsigned integer */
-	proto = (uint32_t)*packet;
+	proto = *((uint32_t*)packet);
 	
 	printf("[bsd-null] ");
 	
