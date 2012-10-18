@@ -35,11 +35,14 @@
 #include <stdlib.h>
 
 #define __FAVOR_BSD
-#include <arpa/inet.h>
-#include <net/ethernet.h>
+#include <sys/socket.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <netinet/if_ether.h>
+#include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
-#include <sys/socket.h>
+#include <arpa/inet.h>
 
 #ifdef __linux__
 #include <netinet/ether.h>
