@@ -76,6 +76,7 @@ static int install_sigalrm(pcap_t *capt);
 static void handle_sigalrm(int signo);
 static void handle_packet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_bsd_null(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
+static void handle_loopback(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet, int type);
 static void handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
@@ -364,6 +365,18 @@ static void
 handle_bsd_null(u_char *args, const struct pcap_pkthdr *pkthdr,
 	const u_char *packet)
 {
+	handle_loopback(args, pkthdr, packet, DLT_NULL);
+	return;
+}
+
+/*
+ * Handle loopback encapsulation.
+ */
+
+static void
+handle_loopback(u_char *args, const struct pcap_pkthdr *pkthdr,
+	const u_char *packet, int type)
+{
 	uint32_t proto;
 	struct stackinfo_t *stackinfo;
 	pcap_handler handle_next = NULL;
@@ -379,9 +392,17 @@ handle_bsd_null(u_char *args, const struct pcap_pkthdr *pkthdr,
 	
 	/* extract link layer header by copying the first 4 bytes of
 	 * the packet and turning it into a 32bit unsigned integer */
-	proto = *((uint32_t*)packet);
-	
-	printf("[bsd-null] ");
+	switch (type)
+	{
+	case DLT_NULL:
+		proto = *((uint32_t*)packet);
+		printf("[bsd-null] ");
+		break;
+	default:
+		printf("[loopback] unknown loopback type: %i\n", type);
+		return;
+		break;
+	}
 	
 	/* check packet type */
 	switch (proto)
