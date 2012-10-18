@@ -48,6 +48,10 @@
 #include <netinet/ether.h>
 #endif /* __linux__ */
 
+#ifndef PCAP_NETMASK_UNKNOWN
+#define PCAP_NETMASK_UNKNOWN 0xffffffff
+#endif /* PCAP_NETMASK_UNKNOWN */
+
 #define BSDLOOP_SIZE 4
 #define ETHER_SIZE sizeof(struct ether_header)
 #define IPV4_SIZE sizeof(struct ip) /* without options!! */
