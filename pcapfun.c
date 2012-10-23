@@ -42,6 +42,7 @@
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
+#include <netinet/ip_icmp.h>
 #include <arpa/inet.h>
 
 #ifdef __linux__
@@ -56,6 +57,7 @@
 #define ETHER_SIZE sizeof(struct ether_header)
 #define IPV4_SIZE sizeof(struct ip) /* without options!! */
 #define UDP_SIZE sizeof(struct udphdr)
+#define ICMP_SIZE sizeof(struct icmp)
 
 typedef struct stackinfo_t {
 	bpf_u_int32 offset;
@@ -81,6 +83,7 @@ static void handle_loopback(u_char *args, const struct pcap_pkthdr *pkthdr, cons
 static void handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
+static void handle_icmp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 
 /* for pcap_breakloop in sigalrm */
 pcap_t *alrm_pcap_handle = NULL;
@@ -590,6 +593,7 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 		break;
 	case IPPROTO_ICMP:
 		printf("proto: icmp ");
+		handle_next = handle_icmp;
 		break;
 	default:
 		printf("proto: ?:%u ", ip->ip_p);
@@ -653,4 +657,38 @@ handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr,
 	
 	return;
 }
+
+/*
+ * Handle ICMP protocol.
+ */
+
+static void
+handle_icmp(u_char *args, const struct pcap_pkthdr *pkthdr,
+	const u_char *packet)
+{
+	struct icmp *icmp;
+	struct stackinfo_t *stackinfo;
 	
+	/* extract stackinfo */
+	stackinfo = (struct stackinfo_t*)(args);
+	
+	/* check if header was captured completely */
+	if (pkthdr->caplen - stackinfo->offset < ICMP_SIZE) {
+		printf("[icmp] header missing or truncated\n");
+		return;
+	}
+	
+	/* extract icmp header */
+	icmp = (struct icmp *)(packet + stackinfo->offset);
+	
+	/* print icmp info */
+	printf("[icmp] type: %u code: %u\n",
+		icmp->icmp_type, icmp->icmp_code);
+	
+	/* point to next layer */
+	stackinfo->offset += ICMP_SIZE;
+	
+	/* handle the next layer */
+	
+	return;
+}
