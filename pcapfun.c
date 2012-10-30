@@ -42,6 +42,7 @@
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
+#include <netinet/tcp.h>
 #include <netinet/ip_icmp.h>
 #include <arpa/inet.h>
 
@@ -57,6 +58,7 @@
 #define ETHER_SIZE sizeof(struct ether_header)
 #define IPV4_SIZE sizeof(struct ip) /* without options!! */
 #define UDP_SIZE sizeof(struct udphdr)
+#define TCP_SIZE sizeof(struct tcphdr)
 #define ICMP_SIZE sizeof(struct icmp)
 
 typedef struct stackinfo_t {
@@ -83,6 +85,7 @@ static void handle_loopback(u_char *args, const struct pcap_pkthdr *pkthdr, cons
 static void handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
+static void handle_tcp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_icmp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 
 /* for pcap_breakloop in sigalrm */
@@ -590,6 +593,9 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 		break;
 	case IPPROTO_TCP:
 		printf("proto: tcp ");
+		if (!offset)
+			/* first fragment handler */
+			handle_next = handle_tcp;
 		break;
 	case IPPROTO_ICMP:
 		printf("proto: icmp ");
@@ -652,6 +658,39 @@ handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr,
 	
 	/* point to next layer */
 	stackinfo->offset += UDP_SIZE;
+	
+	/* handle the next layer */
+	
+	return;
+}
+
+/*
+ * Handle TCP protocol.
+ */
+
+static void
+handle_tcp(u_char *args, const struct pcap_pkthdr *pkthdr,
+	const u_char *packet)
+{
+	struct tcphdr *tcp;
+	struct stackinfo_t *stackinfo;
+	
+	/* extract stackinfo */
+	stackinfo = (struct stackinfo_t*)(args);
+	
+	/* check if header was captured completely */
+	if (pkthdr->caplen - stackinfo->offset < TCP_SIZE) {
+		printf("[tcp] header missing or truncated\n");
+		return;
+	}
+	
+	/* extract tcp header */
+	tcp = (struct tcphdr *)(packet + stackinfo->offset);
+	
+	/* TODO */
+	
+	/* point to next layer */
+	stackinfo->offset += TCP_SIZE;
 	
 	/* handle the next layer */
 	
