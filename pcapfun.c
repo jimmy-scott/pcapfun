@@ -674,6 +674,7 @@ handle_tcp(u_char *args, const struct pcap_pkthdr *pkthdr,
 {
 	struct tcphdr *tcp;
 	struct stackinfo_t *stackinfo;
+	uint16_t tcp_hsize;
 	
 	/* extract stackinfo */
 	stackinfo = (struct stackinfo_t*)(args);
@@ -687,10 +688,19 @@ handle_tcp(u_char *args, const struct pcap_pkthdr *pkthdr,
 	/* extract tcp header */
 	tcp = (struct tcphdr *)(packet + stackinfo->offset);
 	
+	/* verify header length */
+	if (tcp->th_off < 5) {
+		printf("[tcp] invalid header length: %d\n", tcp->th_off);
+		return;
+	}
+	
+	/* calculate header length in bytes */
+	tcp_hsize = tcp->th_off * 4;
+	
 	/* TODO */
 	
 	/* point to next layer */
-	stackinfo->offset += TCP_SIZE;
+	stackinfo->offset += tcp_hsize;
 	
 	/* handle the next layer */
 	
