@@ -599,7 +599,9 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 		break;
 	case IPPROTO_ICMP:
 		printf("proto: icmp ");
-		handle_next = handle_icmp;
+		if (!offset)
+			/* first fragment handler */
+			handle_next = handle_icmp;
 		break;
 	default:
 		printf("proto: ?:%u ", ip->ip_p);
