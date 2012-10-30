@@ -697,7 +697,9 @@ handle_tcp(u_char *args, const struct pcap_pkthdr *pkthdr,
 	/* calculate header length in bytes */
 	tcp_hsize = tcp->th_off * 4;
 	
-	/* TODO */
+	/* print tcp info */
+	printf("[tcp] src-port: %u dst-port: %u hdr-len: %u\n",
+		ntohs(tcp->th_sport), ntohs(tcp->th_dport), tcp_hsize);
 	
 	/* point to next layer */
 	stackinfo->offset += tcp_hsize;
