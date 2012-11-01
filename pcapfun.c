@@ -41,6 +41,7 @@
 #include <netinet/if_ether.h>
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <netinet/udp.h>
 #include <netinet/tcp.h>
 #include <netinet/ip_icmp.h>
@@ -57,6 +58,7 @@
 #define BSDLOOP_SIZE 4
 #define ETHER_SIZE sizeof(struct ether_header)
 #define IPV4_SIZE sizeof(struct ip) /* without options!! */
+#define IPV6_SIZE sizeof(struct ip6_hdr) /* without options */
 #define UDP_SIZE sizeof(struct udphdr)
 #define TCP_SIZE sizeof(struct tcphdr)
 #define ICMP_SIZE sizeof(struct icmp)
@@ -84,6 +86,7 @@ static void handle_bsd_loop(u_char *args, const struct pcap_pkthdr *pkthdr, cons
 static void handle_loopback(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet, int type);
 static void handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
+static void handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_udp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_tcp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 static void handle_icmp(u_char *args, const struct pcap_pkthdr *pkthdr, const u_char *packet);
@@ -440,6 +443,7 @@ handle_loopback(u_char *args, const struct pcap_pkthdr *pkthdr,
 		break;
 	case PF_INET6:
 		printf("proto: ipv6\n");
+		handle_next = handle_ipv6;
 		break;
 	default:
 		printf("proto: ?:%u\n", proto);
@@ -502,6 +506,7 @@ handle_ethernet(u_char *args, const struct pcap_pkthdr *pkthdr,
 		break;
 	case ETHERTYPE_IPV6:
 		printf("proto: ipv6\n");
+		handle_next = handle_ipv6;
 		break;
 	default:
 		printf("proto: ?:%u\n", ether_type);
@@ -626,6 +631,39 @@ handle_ipv4(u_char *args, const struct pcap_pkthdr *pkthdr,
 	/* handle the next layer */
 	if (handle_next)
 		handle_next((u_char *)stackinfo, pkthdr, packet);
+	
+	return;
+}
+
+/*
+ * Handle IPv6 protocol.
+ */
+
+static void
+handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
+	const u_char *packet)
+{
+	struct ip6_hdr *ip6;
+	struct stackinfo_t *stackinfo;
+	
+	/* extract stackinfo */
+	stackinfo = (struct stackinfo_t*)(args);
+	
+	/* check if header was captured completely */
+	if (pkthdr->caplen - stackinfo->offset < IPV6_SIZE) {
+		printf("[ipv6] header missing or truncated\n");
+		return;
+	}
+	
+	/* extract IPv6 header */
+	ip6 = (struct ip6_hdr *)(packet + stackinfo->offset);
+	
+	/* TODO */
+	
+	/* point to next layer */
+	stackinfo->offset += IPV6_SIZE;
+	
+	/* handle the next layer */
 	
 	return;
 }
