@@ -55,6 +55,14 @@
 #define PCAP_NETMASK_UNKNOWN 0xffffffff
 #endif /* PCAP_NETMASK_UNKNOWN */
 
+#ifndef IPV6_VERSION
+#define IPV6_VERSION            0x60
+#endif /* IPV6_VERSION */
+
+#ifndef IPV6_VERSION_MASK
+#define IPV6_VERSION_MASK       0xf0
+#endif /* IPV6_VERSION_MASK */
+
 #define BSDLOOP_SIZE 4
 #define ETHER_SIZE sizeof(struct ether_header)
 #define IPV4_SIZE sizeof(struct ip) /* without options!! */
@@ -645,6 +653,7 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 {
 	struct ip6_hdr *ip6;
 	struct stackinfo_t *stackinfo;
+	uint16_t pl_len;
 	
 	/* extract stackinfo */
 	stackinfo = (struct stackinfo_t*)(args);
@@ -657,6 +666,13 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 	
 	/* extract IPv6 header */
 	ip6 = (struct ip6_hdr *)(packet + stackinfo->offset);
+	
+	/* verify ip version */
+	if ((ip6->ip6_vfc & IPV6_VERSION_MASK) != IPV6_VERSION) {
+		printf("[ipv6] invalid version: %d\n",
+			(ip6->ip6_vfc & IPV6_VERSION_MASK) >> 4);
+		return;
+	}
 	
 	/* TODO */
 	
