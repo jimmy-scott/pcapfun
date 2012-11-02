@@ -667,11 +667,22 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 	/* extract IPv6 header */
 	ip6 = (struct ip6_hdr *)(packet + stackinfo->offset);
 	
+	/* extract pauload length in host byte order */
+	pl_len = ntohs(ip6->ip6_plen);
+	
 	/* verify ip version */
 	if ((ip6->ip6_vfc & IPV6_VERSION_MASK) != IPV6_VERSION) {
 		printf("[ipv6] invalid version: %d\n",
 			(ip6->ip6_vfc & IPV6_VERSION_MASK) >> 4);
 		return;
+	}
+	
+	/* verify payload length (on the wire) */
+	if (pkthdr->len - stackinfo->offset - IPV6_SIZE < pl_len) {
+		printf("[ipv6] truncated: %u bytes missing\n",
+			pl_len - (pkthdr->len - stackinfo->offset -
+			(unsigned int)IPV6_SIZE));
+		/* just a warning, don't return */
 	}
 	
 	/* TODO */
