@@ -653,6 +653,7 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 {
 	struct ip6_hdr *ip6;
 	struct stackinfo_t *stackinfo;
+	char ipsrc[INET6_ADDRSTRLEN], ipdst[INET6_ADDRSTRLEN];
 	uint16_t pl_len;
 	
 	/* extract stackinfo */
@@ -685,7 +686,11 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 		/* just a warning, don't return */
 	}
 	
-	/* TODO */
+	/* print ipv6 fixed header info */
+	printf("[ipv6] src: %s dst: %s len: %u next: %u\n",
+		inet_ntop(AF_INET6, &(ip6->ip6_src), ipsrc, INET6_ADDRSTRLEN),
+		inet_ntop(AF_INET6, &(ip6->ip6_dst), ipdst, INET6_ADDRSTRLEN),
+		pl_len, ip6->ip6_nxt);
 	
 	/* point to next layer */
 	stackinfo->offset += IPV6_SIZE;
