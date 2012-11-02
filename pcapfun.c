@@ -654,6 +654,7 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 	struct ip6_hdr *ip6;
 	struct stackinfo_t *stackinfo;
 	char ipsrc[INET6_ADDRSTRLEN], ipdst[INET6_ADDRSTRLEN];
+	uint8_t next_header, ip_opts_ok;
 	uint16_t pl_len;
 	
 	/* extract stackinfo */
@@ -684,6 +685,29 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 			pl_len - (pkthdr->len - stackinfo->offset -
 			(unsigned int)IPV6_SIZE));
 		/* just a warning, don't return */
+	}
+	
+	/* loop over options while we can handle them */
+	for (next_header = ip6->ip6_nxt;;)
+	{
+		switch (next_header)
+		{
+		case 0:		/* Hop-by-Hop */
+		case 60:	/* Destination (pre+post) */
+		case 43:	/* Routing */
+		case 44:	/* Fragment */
+		case 51:	/* IPsec AH */
+		case 50:	/* IPsec ESP */
+		case 135:	/* Mobility */
+			ip_opts_ok = 0;	/* not implemented */
+			break;
+		default:	/* Not an option */
+			ip_opts_ok = 1; /* must be protocol */
+			break;
+		}
+		
+		/* stop looping */
+		break;
 	}
 	
 	/* print ipv6 fixed header info */
