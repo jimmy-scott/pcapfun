@@ -653,6 +653,7 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 {
 	struct ip6_hdr *ip6;
 	struct stackinfo_t *stackinfo;
+	pcap_handler handle_next = NULL;
 	char ipsrc[INET6_ADDRSTRLEN], ipdst[INET6_ADDRSTRLEN];
 	uint8_t next_header, ip_opts_ok;
 	uint16_t pl_len;
@@ -710,6 +711,24 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 		break;
 	}
 	
+	/* determine protocol */
+	if (ip_opts_ok)
+	{
+		switch (next_header)
+		{
+		case IPPROTO_UDP:
+			handle_next = handle_udp;
+			break;
+		case IPPROTO_TCP:
+			handle_next = handle_tcp;
+			break;
+		case IPPROTO_ICMPV6:
+			break;
+		default:
+			break;
+		}
+	}
+	
 	/* print ipv6 fixed header info */
 	printf("[ipv6] src: %s dst: %s len: %u next: %u\n",
 		inet_ntop(AF_INET6, &(ip6->ip6_src), ipsrc, INET6_ADDRSTRLEN),
@@ -720,6 +739,8 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 	stackinfo->offset += IPV6_SIZE;
 	
 	/* handle the next layer */
+	if (handle_next)
+		handle_next((u_char *)stackinfo, pkthdr, packet);
 	
 	return;
 }
