@@ -652,11 +652,13 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 	const u_char *packet)
 {
 	struct ip6_hdr *ip6;
+	struct ip6_frag *opt_frag = NULL;
 	struct stackinfo_t *stackinfo;
 	pcap_handler handle_next = NULL;
 	char ipsrc[INET6_ADDRSTRLEN], ipdst[INET6_ADDRSTRLEN];
 	uint8_t next_header, ip_opts_ok;
-	uint16_t pl_len;
+	uint16_t pl_len, offset = 0, more_frags = 0;
+	bpf_u_int32 capt_bytes_left;
 	
 	/* extract stackinfo */
 	stackinfo = (struct stackinfo_t*)(args);
@@ -688,15 +690,47 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 		/* just a warning, don't return */
 	}
 	
+	/* point to next option or layer */
+	stackinfo->offset += IPV6_SIZE;
+	
+	/* calculate the remaining amount of bytes in the packet */
+	capt_bytes_left = pkthdr->caplen - stackinfo->offset;
+	
 	/* loop over options while we can handle them */
 	for (next_header = ip6->ip6_nxt;;)
 	{
 		switch (next_header)
 		{
+		case 44:	/* Fragment */
+			/* check if we have the complete option */
+			if (capt_bytes_left < sizeof(struct ip6_frag)) {
+				ip_opts_ok = 0; /* can't parse it */
+				break;
+			}
+			
+			/* extract header */
+			opt_frag = (struct ip6_frag *)(packet + stackinfo->offset);
+			
+			/* update counters */
+			stackinfo->offset += sizeof(struct ip6_frag);
+			capt_bytes_left -= sizeof(struct ip6_frag);
+			
+			/* calculate offset */
+			offset = ntohs(opt_frag->ip6f_offlg & IP6F_OFF_MASK);
+			
+			/* more frags? */
+			more_frags = (opt_frag->ip6f_offlg & IP6F_MORE_FRAG);
+			
+			/* set next header */
+			next_header = opt_frag->ip6f_nxt;
+			
+			/* process next header */
+			continue;
+			
+			break;
 		case 0:		/* Hop-by-Hop */
 		case 60:	/* Destination (pre+post) */
 		case 43:	/* Routing */
-		case 44:	/* Fragment */
 		case 51:	/* IPsec AH */
 		case 50:	/* IPsec ESP */
 		case 135:	/* Mobility */
@@ -717,10 +751,14 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 		switch (next_header)
 		{
 		case IPPROTO_UDP:
-			handle_next = handle_udp;
+			if (!offset)
+				/* first fragment handler */
+				handle_next = handle_udp;
 			break;
 		case IPPROTO_TCP:
-			handle_next = handle_tcp;
+			if (!offset)
+				/* first fragment handler */
+				handle_next = handle_tcp;
 			break;
 		case IPPROTO_ICMPV6:
 			break;
@@ -734,9 +772,6 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 		inet_ntop(AF_INET6, &(ip6->ip6_src), ipsrc, INET6_ADDRSTRLEN),
 		inet_ntop(AF_INET6, &(ip6->ip6_dst), ipdst, INET6_ADDRSTRLEN),
 		pl_len, ip6->ip6_nxt);
-	
-	/* point to next layer */
-	stackinfo->offset += IPV6_SIZE;
 	
 	/* handle the next layer */
 	if (handle_next)
