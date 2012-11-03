@@ -653,11 +653,12 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 {
 	struct ip6_hdr *ip6;
 	struct ip6_frag *opt_frag = NULL;
+	struct ip6_ext *ext_hdr = NULL;
 	struct stackinfo_t *stackinfo;
 	pcap_handler handle_next = NULL;
 	char ipsrc[INET6_ADDRSTRLEN], ipdst[INET6_ADDRSTRLEN];
 	uint8_t next_header, ip_opts_ok;
-	uint16_t pl_len, offset = 0, more_frags = 0;
+	uint16_t pl_len, ext_hdr_len, offset = 0, more_frags = 0;
 	bpf_u_int32 capt_bytes_left;
 	
 	/* extract stackinfo */
@@ -731,6 +732,39 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 		case 0:		/* Hop-by-Hop */
 		case 60:	/* Destination (pre+post) */
 		case 43:	/* Routing */
+			/* XXX skip over these headers for now */
+			
+			/* check if we have the first two octets */
+			if (capt_bytes_left < sizeof(struct ip6_ext)) {
+				ip_opts_ok = 0; /* can't parse it */
+				break;
+			}
+			
+			/* extract part of the header */
+			ext_hdr = (struct ip6_ext *)(packet + stackinfo->offset);
+			
+			/* calculate the header length */
+			ext_hdr_len = (uint16_t)ext_hdr->ip6e_len * 8 + 8;
+			
+			/* check if we have the complete extension */
+			if (capt_bytes_left < ext_hdr_len) {
+				ip_opts_ok = 0; /* can't skip it */
+				break;
+			}
+			
+			/* XXX skip this header */
+			
+			/* update counters */
+			stackinfo->offset += ext_hdr_len;
+			capt_bytes_left -= ext_hdr_len;
+			
+			/* set next header */
+			next_header = ext_hdr->ip6e_nxt;
+			
+			/* process next header */
+			continue;
+			
+			break;
 		case 51:	/* IPsec AH */
 		case 50:	/* IPsec ESP */
 		case 135:	/* Mobility */
