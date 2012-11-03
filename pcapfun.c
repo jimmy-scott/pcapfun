@@ -779,33 +779,48 @@ handle_ipv6(u_char *args, const struct pcap_pkthdr *pkthdr,
 		break;
 	}
 	
+	/* print packet type */
+	if (offset)
+		printf("[ipv6-frag] ");
+	else
+		printf("[ipv6] ");
+	
 	/* determine protocol */
 	if (ip_opts_ok)
 	{
 		switch (next_header)
 		{
 		case IPPROTO_UDP:
+			printf("proto: udp ");
 			if (!offset)
 				/* first fragment handler */
 				handle_next = handle_udp;
 			break;
 		case IPPROTO_TCP:
+			printf("proto: tcp ");
 			if (!offset)
 				/* first fragment handler */
 				handle_next = handle_tcp;
 			break;
 		case IPPROTO_ICMPV6:
+			printf("proto: icmp6 ");
 			break;
 		default:
+			printf("proto: ?:%u ", next_header);
 			break;
 		}
 	}
+	else
+	{
+		/* extension we do not support */
+		printf("next: ?:%u ", next_header);
+	}
 	
-	/* print ipv6 fixed header info */
-	printf("[ipv6] src: %s dst: %s len: %u next: %u\n",
+	/* print ipv6 info */
+	printf("src: %s dst: %s len: %u off: %u%s\n",
 		inet_ntop(AF_INET6, &(ip6->ip6_src), ipsrc, INET6_ADDRSTRLEN),
 		inet_ntop(AF_INET6, &(ip6->ip6_dst), ipdst, INET6_ADDRSTRLEN),
-		pl_len, ip6->ip6_nxt);
+		pl_len, offset, more_frags ? " +" : "");
 	
 	/* handle the next layer */
 	if (handle_next)
